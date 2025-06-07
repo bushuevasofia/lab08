@@ -1,48 +1,41 @@
-# Многоэтапная сборка для уменьшения размера образа
-FROM ubuntu:22.04 AS builder
+FROM ubuntu:24.04
 
-# 1. Установка зависимостей
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
+RUN apt-get update && apt-get install -y \
+    build-essential \
     cmake \
-    make \
+    git \
+    lcov \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Копирование только необходимых файлов
-COPY CMakeLists.txt /app/
-COPY include/ /app/include/
-COPY src/ /app/src/
-COPY demo/ /app/demo/
-
+COPY . /app
 WORKDIR /app
 
-# 3. Сборка проекта
-RUN mkdir -p _build && \
-    cd _build && \
-    cmake .. \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=/app/_install && \
-    cmake --build . --target install -- -j$(nproc)
 
-# Финальный образ
-FROM ubuntu:22.04
+RUN git submodule init && git submodule update
 
-# 1. Runtime зависимости
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    libstdc++6 \
-    && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p build
 
-# 2. Настройка логирования
-RUN mkdir -p /home/logs
-ENV LOG_PATH=/home/logs/log.txt
-VOLUME /home/logs
 
-# 3. Копирование собранных файлов
-COPY --from=builder /app/_install/bin/demo /usr/local/bin/demo
+RUN cd build && \
+    cmake -DCOVERAGE=ON -DCMAKE_BUILD_TYPE=Release .. && \
+    cmake --build . --config Release --parallel $(nproc)
 
-# 4. Точка входа
-WORKDIR /home
-ENTRYPOINT ["demo"]
+
+RUN cd build && ./RunTest
+
+
+RUN cd build && \
+    lcov --capture --directory . --output-file coverage.info \
+    --rc geninfo_unexecuted_blocks=1 \
+    --ignore-errors mismatch,unused && \
+    lcov --remove coverage.info \
+    '/usr/*' \
+    '*/googletest/*' \
+    '*/test/*' \
+    --output-file coverage.info \
+    --ignore-errors unused && \
+    genhtml coverage.info --output-directory coverage_report \
+    --ignore-errors unmapped,unused
+
+CMD ["bash"]
