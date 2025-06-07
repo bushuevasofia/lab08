@@ -1,41 +1,26 @@
-FROM ubuntu:24.04
+FROM ubuntu:18.04
 
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    git \
-    lcov \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt update && apt install -yy gcc g++ cmake git
 
-COPY . /app
-WORKDIR /app
+COPY . /print
 
+WORKDIR /print
 
-RUN git submodule init && git submodule update
+# Создаем чистую сборку
+RUN rm -rf _build _install && mkdir -p _build
 
-RUN mkdir -p build
+# Сборка
+WORKDIR /print/_build
+RUN cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/print/_install
+RUN cmake --build . --target install
 
+# Убеждаемся, что бинарник демо есть
+RUN ls -la /print/_install/bin
 
-RUN cd build && \
-    cmake -DCOVERAGE=ON -DCMAKE_BUILD_TYPE=Release .. && \
-    cmake --build . --config Release --parallel $(nproc)
+# Переменная окружения для логов
+ENV LOG_PATH /home/logs/log.txt
+VOLUME /home/logs
 
+WORKDIR /print/_install/bin
 
-RUN cd build && ./RunTest
-
-
-RUN cd build && \
-    lcov --capture --directory . --output-file coverage.info \
-    --rc geninfo_unexecuted_blocks=1 \
-    --ignore-errors mismatch,unused && \
-    lcov --remove coverage.info \
-    '/usr/*' \
-    '*/googletest/*' \
-    '*/test/*' \
-    --output-file coverage.info \
-    --ignore-errors unused && \
-    genhtml coverage.info --output-directory coverage_report \
-    --ignore-errors unmapped,unused
-
-CMD ["bash"]
+ENTRYPOINT ["./demo"]

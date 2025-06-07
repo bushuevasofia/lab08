@@ -1,0 +1,31 @@
+# Сборочные артефакты
+_build/
+_install/
+
+# Логи
+logs/
+
+# Docker-related
+*.log
+*.tmp
+
+# Кэш и временные файлы
+*.o
+*.obj
+*.exe
+*.dll
+
+# Системные и IDE файлы (пример для Linux, Windows, VSCode)
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Docker intermediate stuff (если вдруг просачивается)
+adac4cf2093e
+e6a23f156c7a
+f9a80a55f492
+1bfc16578b17
+8b1b812c2652
+8b1b812c2652
